@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>TikTok Shop partner gateway demo</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main>
+      <h1>TikTok Shop partner gateway</h1>
+      <p class="lead">Authorize a Shop account, then send gateway-shaped requests through the local thin proxy.</p>
+      <p>Gateway: <code id="gateway-origin">Loading…</code></p>
+      <p id="message" role="status"></p>
+      <section>
+        <h2>1. Connect TikTok Shop</h2>
+        <a class="button" href="/oauth/start?provider=shop">Connect TikTok Shop</a>
+        <p><strong>Connection ID</strong></p>
+        <pre id="connections">Loading…</pre>
+      </section>
+      <section>
+        <h2>2. Try Shop APIs</h2>
+        <div class="actions">
+          <button data-request data-method="GET" data-path="authorization/202309/shops">List authorized shops</button>
+          <button data-request data-method="GET" data-path="metadata">Connection metadata</button>
+        </div>
+        <div class="grid examples">
+          <form data-shop-search data-path="order/202309/orders/search">
+            <h3>Search orders</h3>
+            <label>Shop cipher
+              <input name="shop_cipher" data-shop-cipher required />
+            </label>
+            <label>Page size
+              <input name="page_size" type="number" min="1" max="100" value="20" />
+            </label>
+            <button>Search orders</button>
+          </form>
+          <form data-shop-search data-path="product/202502/products/search">
+            <h3>Search products</h3>
+            <label>Shop cipher
+              <input name="shop_cipher" data-shop-cipher required />
+            </label>
+            <label>Page size
+              <input name="page_size" type="number" min="1" max="100" value="20" />
+            </label>
+            <button>Search products</button>
+          </form>
+        </div>
+        <h3>Custom request</h3>
+        <form id="custom-request" class="custom-request">
+          <label>Method
+            <select id="custom-method" name="method"><option>GET</option><option>POST</option></select>
+          </label>
+          <label>Path
+            <input name="path" required value="authorization/202309/shops" placeholder="order/202309/orders/search" />
+          </label>
+          <label>Query parameters
+            <textarea name="query" rows="2" placeholder="shop_cipher=...&amp;page_size=20"></textarea>
+          </label>
+          <label id="custom-body-field" hidden>JSON body
+            <textarea name="body" rows="6">{}</textarea>
+          </label>
+          <button>Call API</button>
+        </form>
+        <h3>Request</h3>
+        <pre id="request-preview">Choose an API call.</pre>
+        <h3>Response</h3>
+        <pre id="result">Choose an API call.</pre>
+      </section>
+      <section>
+        <h2>3. Disconnect</h2>
+        <button id="disconnect" disabled>Disconnect TikTok Shop</button>
+      </section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
