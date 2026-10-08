@@ -3,26 +3,54 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>TikTok Shop partner gateway demo</title>
+    <title>TikTok partner gateway demo</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
     <main>
-      <h1>TikTok Shop partner gateway</h1>
-      <p class="lead">Authorize a Shop account, then send gateway-shaped requests through the local thin proxy.</p>
+      <h1>TikTok partner gateway</h1>
+      <p class="lead">Authorize a TikTok Business (Ads) or Shop account, then send gateway-shaped requests through the local thin proxy.</p>
       <p>Gateway: <code id="gateway-origin">Loading…</code></p>
       <p id="message" role="status"></p>
       <section>
-        <h2>1. Connect TikTok Shop</h2>
-        <a class="button" href="/oauth/start?provider=shop">Connect TikTok Shop</a>
-        <p><strong>Connection ID</strong></p>
+        <h2>1. Connect</h2>
+        <div class="actions">
+          <a class="button" href="/oauth/start?provider=business">Connect TikTok Business</a>
+          <a class="button" href="/oauth/start?provider=shop">Connect TikTok Shop</a>
+        </div>
+        <p><strong>Connection IDs</strong></p>
         <pre id="connections">Loading…</pre>
       </section>
       <section>
-        <h2>2. Try Shop APIs</h2>
+        <h2>2. Try APIs</h2>
+        <h3>Business (Ads)</h3>
         <div class="actions">
-          <button data-request data-method="GET" data-path="authorization/202309/shops">List authorized shops</button>
-          <button data-request data-method="GET" data-path="metadata">Connection metadata</button>
+          <button data-request data-provider="business" data-method="GET" data-path="open_api/v1.3/oauth2/advertiser/get/">List authorized advertisers</button>
+          <button data-request data-provider="business" data-method="GET" data-path="metadata">Business connection metadata</button>
+        </div>
+        <div class="grid examples">
+          <form data-business-query data-path="open_api/v1.3/advertiser/info/" data-list-param="advertiser_ids">
+            <h3>Advertiser info</h3>
+            <label>Advertiser ID
+              <input name="advertiser_ids" data-advertiser-id required pattern="[0-9]+" />
+            </label>
+            <button>Get advertiser info</button>
+          </form>
+          <form data-business-query data-path="open_api/v1.3/campaign/get/">
+            <h3>List campaigns</h3>
+            <label>Advertiser ID
+              <input name="advertiser_id" data-advertiser-id required pattern="[0-9]+" />
+            </label>
+            <label>Page size
+              <input name="page_size" type="number" min="1" max="1000" value="20" />
+            </label>
+            <button>List campaigns</button>
+          </form>
+        </div>
+        <h3>Shop</h3>
+        <div class="actions">
+          <button data-request data-provider="shop" data-method="GET" data-path="authorization/202309/shops">List authorized shops</button>
+          <button data-request data-provider="shop" data-method="GET" data-path="metadata">Shop connection metadata</button>
         </div>
         <div class="grid examples">
           <form data-shop-search data-path="order/202309/orders/search">
@@ -48,11 +76,14 @@
         </div>
         <h3>Custom request</h3>
         <form id="custom-request" class="custom-request">
+          <label>Provider
+            <select id="custom-provider" name="provider"><option value="shop">Shop</option><option value="business">Business (Ads)</option></select>
+          </label>
           <label>Method
             <select id="custom-method" name="method"><option>GET</option><option>POST</option></select>
           </label>
           <label>Path
-            <input name="path" required value="authorization/202309/shops" placeholder="order/202309/orders/search" />
+            <input id="custom-path" name="path" required value="authorization/202309/shops" placeholder="order/202309/orders/search" />
           </label>
           <label>Query parameters
             <textarea name="query" rows="2" placeholder="shop_cipher=...&amp;page_size=20"></textarea>
@@ -69,7 +100,10 @@
       </section>
       <section>
         <h2>3. Disconnect</h2>
-        <button id="disconnect" disabled>Disconnect TikTok Shop</button>
+        <div class="actions">
+          <button data-disconnect="business" disabled>Disconnect TikTok Business</button>
+          <button data-disconnect="shop" disabled>Disconnect TikTok Shop</button>
+        </div>
       </section>
     </main>
     <script type="module" src="/app.js"></script>

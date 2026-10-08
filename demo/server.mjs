@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const connectionPattern = /^ttc_[a-f0-9]{32}$/;
 const sessionPattern = /^[a-f0-9]{64}$/;
+const proxyPrefixes = { business: "proxy-ttb", shop: "proxy-tts" };
 
 class RequestError extends Error {}
 
@@ -73,8 +74,8 @@ export function createDemo(config, fetchImpl = fetch) {
       const current = session(req, res);
       if (req.method === "GET" && url.pathname === "/oauth/start") {
         const provider = url.searchParams.get("provider");
-        if (provider !== "shop")
-          throw new RequestError("provider must be shop");
+        if (!Object.hasOwn(proxyPrefixes, provider))
+          throw new RequestError("provider must be business or shop");
         const state = randomBytes(32).toString("base64url");
         states.set(hash(state), {
           sessionID: current.id,
@@ -111,9 +112,10 @@ export function createDemo(config, fetchImpl = fetch) {
       }
       if (req.method === "GET" && url.pathname === "/api/connections")
         return json(res, 200, current.value.connections);
-      if (req.method === "DELETE" && url.pathname === "/api/connections/shop") {
+      const saved = url.pathname.match(/^\/api\/connections\/(business|shop)$/);
+      if (req.method === "DELETE" && saved) {
         checkOrigin(req, config.demoOrigin);
-        delete current.value.connections.shop;
+        delete current.value.connections[saved[1]];
         res.writeHead(204).end();
         return;
       }
@@ -121,15 +123,16 @@ export function createDemo(config, fetchImpl = fetch) {
         ["GET", "POST", "DELETE"].includes(req.method) &&
         url.pathname.startsWith("/_tiktok/connections/")
       ) {
-        const connectionID = current.value.connections.shop;
-        const basePath = `/_tiktok/connections/${connectionID || ""}`;
-        if (
-          !connectionID ||
-          (url.pathname !== basePath &&
-            !url.pathname.startsWith(`${basePath}/proxy-tts/`))
-        ) {
-          throw new RequestError("Shop connection path is invalid");
-        }
+        const allowed = Object.entries(current.value.connections).some(
+          ([provider, connectionID]) => {
+            const basePath = `/_tiktok/connections/${connectionID}`;
+            return (
+              url.pathname === basePath ||
+              url.pathname.startsWith(`${basePath}/${proxyPrefixes[provider]}/`)
+            );
+          },
+        );
+        if (!allowed) throw new RequestError("connection path is invalid");
         const body = req.method === "POST" ? await readBody(req) : undefined;
         const headers = {};
         for (const name of ["authorization", "accept", "content-type"]) {

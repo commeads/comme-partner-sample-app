@@ -233,7 +233,7 @@ Requests time out at approximately 40 seconds. Request bodies are limited to 4 M
 
 ## Demo application
 
-The [runnable demo](demo/README.md) uses Node.js without third-party packages. It focuses on TikTok Shop authorization and demonstrates connection metadata, authorized shops, order search, product search, custom GET/POST calls, and disconnect. The browser constructs the complete gateway request and sends it to the same-origin demo server, which forwards the method, path, query, body, and API headers while replacing only the origin. Each call displays a curl-style request. The dedicated non-production demo key is available to the demo browser; production integrations keep partner keys server-side.
+The [runnable demo](demo/README.md) uses Node.js without third-party packages. It covers TikTok Business (Ads) and TikTok Shop authorization and demonstrates connection metadata, authorized advertisers, advertiser info, campaign listing, authorized shops, order search, product search, custom GET/POST calls, and disconnect. The browser constructs the complete gateway request and sends it to the same-origin demo server, which forwards the method, path, query, body, and API headers while replacing only the origin. Each call displays a curl-style request. The dedicated non-production demo key is available to the demo browser; production integrations keep partner keys server-side.
 
 The demo keeps sessions and connection mappings in memory for clarity. A real partner service must use its authenticated session, durable encrypted storage, authorization checks around every connection mapping, HTTPS secure cookies, secret management, audit-safe logging, and a key-rotation procedure.
 

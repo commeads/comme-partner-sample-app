@@ -33,18 +33,22 @@ async function running(run, fakeFetch) {
   }
 }
 
-async function connectShop(base) {
-  const start = await fetch(`${base}/oauth/start?provider=shop`, {
+async function connect(base, provider, connectionID, cookie) {
+  const start = await fetch(`${base}/oauth/start?provider=${provider}`, {
+    headers: cookie ? { cookie } : {},
     redirect: "manual",
   });
-  const cookie = start.headers.get("set-cookie").split(";")[0];
+  cookie ??= start.headers.get("set-cookie").split(";")[0];
   const state = new URL(start.headers.get("location")).searchParams.get("state");
-  const connectionID = `ttc_${"b".repeat(32)}`;
   await fetch(
     `${base}/oauth/callback?state=${encodeURIComponent(state)}&connection_id=${connectionID}`,
     { headers: { cookie }, redirect: "manual" },
   );
   return { cookie, connectionID };
+}
+
+function connectShop(base) {
+  return connect(base, "shop", `ttc_${"b".repeat(32)}`);
 }
 
 test("Shop OAuth state is session-bound, single-use, and stores the connection", async () => {
@@ -149,10 +153,62 @@ test("thin proxy preserves method, path, query, body, and API headers", async ()
   );
 });
 
-test("rejects Business OAuth and the old operation endpoint", async () => {
+test("Business connection proxies Ads paths and keeps provider prefixes separate", async () => {
+  const calls = [];
   await running(
     async (base) => {
-      assert.equal((await fetch(`${base}/oauth/start?provider=business`)).status, 400);
+      const business = `ttc_${"c".repeat(32)}`;
+      const { cookie, connectionID: shop } = await connectShop(base);
+      await connect(base, "business", business, cookie);
+      assert.deepEqual(
+        await (await fetch(`${base}/api/connections`, { headers: { cookie } })).json(),
+        { shop, business },
+      );
+
+      const path = `/_tiktok/connections/${business}/proxy-ttb/open_api/v1.3/campaign/get/?advertiser_id=123&page_size=20`;
+      const response = await fetch(base + path, {
+        headers: { cookie, Authorization: `Bearer ${config.apiKey}` },
+      });
+      assert.equal(response.status, 200);
+      assert.equal(calls[0].url, config.origin + path);
+      assert.equal(calls[0].init.method, "GET");
+
+      for (const crossed of [
+        `/_tiktok/connections/${business}/proxy-tts/authorization/202309/shops`,
+        `/_tiktok/connections/${shop}/proxy-ttb/open_api/v1.3/campaign/get/`,
+      ]) {
+        assert.equal((await fetch(base + crossed, { headers: { cookie } })).status, 400);
+      }
+      assert.equal(calls.length, 1);
+
+      assert.equal(
+        (
+          await fetch(`${base}/api/connections/business`, {
+            method: "DELETE",
+            headers: { cookie, Origin: config.demoOrigin },
+          })
+        ).status,
+        204,
+      );
+      assert.deepEqual(
+        await (await fetch(`${base}/api/connections`, { headers: { cookie } })).json(),
+        { shop },
+      );
+    },
+    async (url, init) => {
+      calls.push({ url, init });
+      return new Response('{"code":0}', {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+  );
+});
+
+test("rejects unknown providers and the old operation endpoint", async () => {
+  await running(
+    async (base) => {
+      assert.equal((await fetch(`${base}/oauth/start?provider=other`)).status, 400);
       assert.equal((await fetch(`${base}/api/call`, { method: "POST" })).status, 404);
     },
   );
