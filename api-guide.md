@@ -4,7 +4,7 @@
 
 ## Overview
 
-The partner gateway lets an approved partner obtain a user's TikTok Business or TikTok Shop authorization and make a reviewed set of read-only TikTok API calls. The gateway operator supplies the base URL for your environment privately; examples below use the placeholder `https://gateway.example`.
+The partner gateway lets an approved partner obtain a user's TikTok Business, TikTok Shop, or TikTok Shop customer service authorization and make a reviewed set of TikTok API calls. Business and Shop calls are read-only; the customer service calls listed below include writes that reach real buyers. The gateway operator supplies the base URL for your environment privately; examples below use the placeholder `https://gateway.example`.
 
 The partner receives two values privately:
 
@@ -24,7 +24,7 @@ The proxy deliberately keeps TikTok Shop's versioned paths, query parameters, JS
 | Seller authorization | Partner obtains and stores TikTok tokens | Gateway completes OAuth and stores tokens; partner stores only `connection_id` |
 | Signing parameters | Caller supplies `app_key`, `timestamp`, and `sign` | Gateway removes caller-supplied credential/signing parameters and generates its own |
 | Shop selection | `shop_cipher` from the authorized-shops response | Same `shop_cipher`, obtained through the proxied authorized-shops call |
-| Methods and paths | Any operation granted to the TikTok app | Only the exact read operations listed in this guide; all other method/path/version combinations return `403` |
+| Methods and paths | Any operation granted to the TikTok app | Only the exact operations listed in this guide; all other method/path/version combinations return `403` |
 | Request body and query | Defined by each TikTok endpoint | Preserved for admitted calls, except gateway-owned authentication/signing inputs; duplicate Shop query keys are rejected |
 | Response body | TikTok schema and API `code` | TikTok status and body pass through byte-for-byte in the normal case; gateway-generated failures use the separate `error` envelope below |
 | Response headers | TikTok's full response header set | Only `Content-Type`, `Retry-After`, and validated TikTok request-ID headers can pass; `Cache-Control: no-store` is added |
@@ -64,7 +64,7 @@ Register every exact callback URI with the gateway operator. HTTPS is required i
    ```text
    GET /_tiktok/oauth/authorize
      ?client_id=<client-id>
-     &provider=<business|shop>
+     &provider=<business|shop|shop_cs>
      &redirect_uri=<url-encoded registered callback>
      &state=<opaque partner state>
    ```
@@ -101,9 +101,10 @@ Provider calls retain TikTok's documented query parameters and JSON request bodi
 ```text
 Business: /_tiktok/connections/{connection_id}/proxy-ttb{TikTok Business path}
 Shop:     /_tiktok/connections/{connection_id}/proxy-tts{TikTok Shop path}
+Shop CS:  /_tiktok/connections/{connection_id}/proxy-tts-cs{TikTok Shop path}
 ```
 
-Do not send provider tokens, app IDs, secrets, signatures, or timestamps. The gateway strips credential-like inputs and supplies its own provider authentication. It forwards only `Accept` and `Content-Type` request headers. JSON requests must use `Content-Type: application/json`; compressed request bodies are not supported. Pagination is the partner's responsibility.
+Do not send provider tokens, app IDs, secrets, signatures, or timestamps. The gateway strips credential-like inputs and supplies its own provider authentication. It forwards only `Accept` and `Content-Type` request headers. JSON requests must use `Content-Type: application/json`, and the customer service image upload uses `multipart/form-data`; compressed request bodies are not supported. Pagination is the partner's responsibility.
 
 ### Connection management
 
@@ -188,7 +189,32 @@ curl --fail-with-body -X POST \
   "$GATEWAY/_tiktok/connections/$CONNECTION_ID/proxy-tts/order/202309/orders/search?shop_cipher=$SHOP_CIPHER&page_size=20"
 ```
 
-Only the exact method/path combinations above are admitted. Unknown paths, different API versions, mutation endpoints, token endpoints, uploads, and report creation/cancellation fail closed. Provider permissions and market availability can still limit an admitted call.
+Only the exact method/path combinations above are admitted. Unknown paths, different API versions, mutation endpoints, token endpoints, uploads, and report creation/cancellation fail closed on `proxy-ttb` and `proxy-tts`; customer service has its own rules below. Provider permissions and market availability can still limit an admitted call.
+
+### Shop customer service paths
+
+TikTok puts customer service in a separate Shop app, so it has its own provider. Authorize with `provider=shop_cs` and call `/_tiktok/connections/{connection_id}/proxy-tts-cs{TikTok Shop path}`. The seller authorizes this app separately from `shop`, and each provider gets its own connection ID. A `shop_cs` connection does not work on `proxy-tts`, and a `shop` connection does not work on `proxy-tts-cs`.
+
+| Method | TikTok Shop path |
+| --- | --- |
+| `GET` | `/authorization/202309/shops` |
+| `GET` | `/customer_service/202309/conversations` |
+| `POST` | `/customer_service/202309/conversations` |
+| `GET` | `/customer_service/202309/conversations/{numeric-id}/messages` |
+| `POST` | `/customer_service/202309/conversations/{numeric-id}/messages` |
+| `POST` | `/customer_service/202309/images/upload` (multipart) |
+
+Any six-digit API version is admitted; send the version of the TikTok contract you implement. Creating a conversation and sending a message reach real buyers. List the authorized shops through the `shop_cs` connection first, then pass its `shop_cipher`:
+
+```sh
+curl --fail-with-body \
+  -H "Authorization: Bearer $PARTNER_API_KEY" \
+  "$GATEWAY/_tiktok/connections/$CS_CONNECTION_ID/proxy-tts-cs/customer_service/202309/conversations?shop_cipher=$SHOP_CIPHER&page_size=20"
+
+curl --fail-with-body \
+  -H "Authorization: Bearer $PARTNER_API_KEY" \
+  "$GATEWAY/_tiktok/connections/$CS_CONNECTION_ID/proxy-tts-cs/customer_service/202309/conversations/$CONVERSATION_ID/messages?shop_cipher=$SHOP_CIPHER&page_size=10"
+```
 
 ## Statuses, limits, and retries
 
@@ -233,7 +259,7 @@ Requests time out at approximately 40 seconds. Request bodies are limited to 4 M
 
 ## Demo application
 
-The [runnable demo](demo/README.md) uses Node.js without third-party packages. It covers TikTok Business (Ads) and TikTok Shop authorization and demonstrates connection metadata, authorized advertisers, advertiser info, campaign listing, authorized shops, order search, product search, custom GET/POST calls, and disconnect. The browser constructs the complete gateway request and sends it to the same-origin demo server, which forwards the method, path, query, body, and API headers while replacing only the origin. Each call displays a curl-style request. The dedicated non-production demo key is available to the demo browser; production integrations keep partner keys server-side.
+The [runnable demo](demo/README.md) uses Node.js without third-party packages. It covers TikTok Business (Ads), TikTok Shop, and TikTok Shop customer service (`shop_cs`) authorization and demonstrates connection metadata, authorized advertisers, advertiser info, campaign listing, authorized shops, order search, product search, customer service conversations and messages, custom GET/POST calls, and disconnect. The browser constructs the complete gateway request and sends it to the same-origin demo server, which forwards the method, path, query, body, and API headers while replacing only the origin. Each call displays a curl-style request. The dedicated non-production demo key is available to the demo browser; production integrations keep partner keys server-side.
 
 The demo keeps sessions and connection mappings in memory for clarity. A real partner service must use its authenticated session, durable encrypted storage, authorization checks around every connection mapping, HTTPS secure cookies, secret management, audit-safe logging, and a key-rotation procedure.
 

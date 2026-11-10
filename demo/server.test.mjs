@@ -205,6 +205,67 @@ test("Business connection proxies Ads paths and keeps provider prefixes separate
   );
 });
 
+test("Shop customer service connection proxies proxy-tts-cs paths only", async () => {
+  const calls = [];
+  await running(
+    async (base) => {
+      const cs = `ttc_${"d".repeat(32)}`;
+      const { cookie, connectionID: shop } = await connectShop(base);
+      const start = await fetch(`${base}/oauth/start?provider=shop_cs`, {
+        headers: { cookie },
+        redirect: "manual",
+      });
+      assert.equal(new URL(start.headers.get("location")).searchParams.get("provider"), "shop_cs");
+      await connect(base, "shop_cs", cs, cookie);
+      assert.deepEqual(
+        await (await fetch(`${base}/api/connections`, { headers: { cookie } })).json(),
+        { shop, shop_cs: cs },
+      );
+
+      for (const path of [
+        `/_tiktok/connections/${cs}/proxy-tts-cs/customer_service/202309/conversations?shop_cipher=cipher&page_size=20`,
+        `/_tiktok/connections/${cs}/proxy-tts-cs/customer_service/202309/conversations/7494560109732432139/messages?shop_cipher=cipher&page_size=10`,
+      ]) {
+        const response = await fetch(base + path, {
+          headers: { cookie, Authorization: `Bearer ${config.apiKey}` },
+        });
+        assert.equal(response.status, 200);
+        assert.equal(calls.at(-1).url, config.origin + path);
+        assert.equal(calls.at(-1).init.method, "GET");
+      }
+
+      for (const crossed of [
+        `/_tiktok/connections/${cs}/proxy-tts/authorization/202309/shops`,
+        `/_tiktok/connections/${shop}/proxy-tts-cs/customer_service/202309/conversations`,
+      ]) {
+        assert.equal((await fetch(base + crossed, { headers: { cookie } })).status, 400);
+      }
+      assert.equal(calls.length, 2);
+
+      assert.equal(
+        (
+          await fetch(`${base}/api/connections/shop_cs`, {
+            method: "DELETE",
+            headers: { cookie, Origin: config.demoOrigin },
+          })
+        ).status,
+        204,
+      );
+      assert.deepEqual(
+        await (await fetch(`${base}/api/connections`, { headers: { cookie } })).json(),
+        { shop },
+      );
+    },
+    async (url, init) => {
+      calls.push({ url, init });
+      return new Response('{"code":0}', {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+  );
+});
+
 test("rejects unknown providers and the old operation endpoint", async () => {
   await running(
     async (base) => {

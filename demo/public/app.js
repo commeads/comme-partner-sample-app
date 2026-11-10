@@ -9,6 +9,7 @@ const message = new URLSearchParams(location.search).get("message");
 const providers = {
   business: { label: "TikTok Business", prefix: "proxy-ttb", examplePath: "open_api/v1.3/oauth2/advertiser/get/" },
   shop: { label: "TikTok Shop", prefix: "proxy-tts", examplePath: "authorization/202309/shops" },
+  shop_cs: { label: "TikTok Shop customer service", prefix: "proxy-tts-cs", examplePath: "customer_service/202309/conversations" },
 };
 let configuration;
 let connectionIDs = {};
@@ -98,13 +99,19 @@ function fillFirst(selector, value) {
   });
 }
 
+function firstShopCipher(data) {
+  const firstShop = data?.data?.shops?.[0] ?? data?.shops?.[0];
+  return firstShop?.shop_cipher ?? firstShop?.cipher;
+}
+
+// Keyed by provider and path: shop and shop_cs list their authorized shops separately.
 const autofill = {
-  "open_api/v1.3/oauth2/advertiser/get/": (data) =>
+  "business:open_api/v1.3/oauth2/advertiser/get/": (data) =>
     fillFirst("[data-advertiser-id]", data?.data?.list?.[0]?.advertiser_id),
-  "authorization/202309/shops": (data) => {
-    const firstShop = data?.data?.shops?.[0] ?? data?.shops?.[0];
-    fillFirst("[data-shop-cipher]", firstShop?.shop_cipher ?? firstShop?.cipher);
-  },
+  "shop:authorization/202309/shops": (data) => fillFirst("[data-shop-cipher]", firstShopCipher(data)),
+  "shop_cs:authorization/202309/shops": (data) => fillFirst("[data-cs-shop-cipher]", firstShopCipher(data)),
+  "shop_cs:customer_service/202309/conversations": (data) =>
+    fillFirst("[data-conversation-id]", data?.data?.conversations?.[0]?.id),
 };
 
 async function refresh() {
@@ -129,7 +136,7 @@ document.querySelectorAll("button[data-request]").forEach((button) =>
       query: button.dataset.query || "",
       body: button.dataset.body,
     });
-    if (response.ok) autofill[button.dataset.path]?.(response.data);
+    if (response.ok) autofill[`${button.dataset.provider}:${button.dataset.path}`]?.(response.data);
   }),
 );
 
@@ -159,6 +166,20 @@ document.querySelectorAll("form[data-shop-search]").forEach((form) =>
       query,
       body: "{}",
     });
+  }),
+);
+
+document.querySelectorAll("form[data-cs-query]").forEach((form) =>
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const query = new URLSearchParams();
+    let path = form.dataset.path;
+    for (const [name, value] of new FormData(form)) {
+      if (path.includes(`{${name}}`)) path = path.replace(`{${name}}`, value.trim());
+      else if (value.trim()) query.set(name, value.trim());
+    }
+    const response = await callGateway({ provider: "shop_cs", method: "GET", path, query: query.toString() });
+    if (response.ok) autofill[`shop_cs:${form.dataset.path}`]?.(response.data);
   }),
 );
 

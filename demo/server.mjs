@@ -7,7 +7,13 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const connectionPattern = /^ttc_[a-f0-9]{32}$/;
 const sessionPattern = /^[a-f0-9]{64}$/;
-const proxyPrefixes = { business: "proxy-ttb", shop: "proxy-tts" };
+// Each provider is a separate TikTok app with its own OAuth consent and connection ID.
+// shop_cs is the TikTok Shop customer service app; it has its own proxy prefix.
+const proxyPrefixes = {
+  business: "proxy-ttb",
+  shop: "proxy-tts",
+  shop_cs: "proxy-tts-cs",
+};
 
 class RequestError extends Error {}
 
@@ -75,7 +81,7 @@ export function createDemo(config, fetchImpl = fetch) {
       if (req.method === "GET" && url.pathname === "/oauth/start") {
         const provider = url.searchParams.get("provider");
         if (!Object.hasOwn(proxyPrefixes, provider))
-          throw new RequestError("provider must be business or shop");
+          throw new RequestError("provider must be business, shop or shop_cs");
         const state = randomBytes(32).toString("base64url");
         states.set(hash(state), {
           sessionID: current.id,
@@ -112,7 +118,7 @@ export function createDemo(config, fetchImpl = fetch) {
       }
       if (req.method === "GET" && url.pathname === "/api/connections")
         return json(res, 200, current.value.connections);
-      const saved = url.pathname.match(/^\/api\/connections\/(business|shop)$/);
+      const saved = url.pathname.match(/^\/api\/connections\/(business|shop|shop_cs)$/);
       if (req.method === "DELETE" && saved) {
         checkOrigin(req, config.demoOrigin);
         delete current.value.connections[saved[1]];

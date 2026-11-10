@@ -9,7 +9,7 @@
   <body>
     <main>
       <h1>TikTok partner gateway</h1>
-      <p class="lead">Authorize a TikTok Business (Ads) or Shop account, then send gateway-shaped requests through the local thin proxy.</p>
+      <p class="lead">Authorize a TikTok Business (Ads), Shop, or Shop customer service account, then send gateway-shaped requests through the local thin proxy.</p>
       <p>Gateway: <code id="gateway-origin">Loading…</code></p>
       <p id="message" role="status"></p>
       <section>
@@ -17,6 +17,7 @@
         <div class="actions">
           <a class="button" href="/oauth/start?provider=business">Connect TikTok Business</a>
           <a class="button" href="/oauth/start?provider=shop">Connect TikTok Shop</a>
+          <a class="button" href="/oauth/start?provider=shop_cs">Connect TikTok Shop customer service</a>
         </div>
         <p><strong>Connection IDs</strong></p>
         <pre id="connections">Loading…</pre>
@@ -74,10 +75,47 @@
             <button>Search products</button>
           </form>
         </div>
+        <h3>Shop customer service</h3>
+        <p>Customer service uses a separate TikTok Shop app, so the Shop authorizes it separately and it has its own connection ID and <code>proxy-tts-cs</code> prefix.</p>
+        <div class="actions">
+          <button data-request data-provider="shop_cs" data-method="GET" data-path="authorization/202309/shops">List authorized shops</button>
+          <button data-request data-provider="shop_cs" data-method="GET" data-path="metadata">Customer service connection metadata</button>
+        </div>
+        <div class="grid examples">
+          <form data-cs-query data-path="customer_service/202309/conversations">
+            <h3>Get conversations</h3>
+            <label>Shop cipher
+              <input name="shop_cipher" data-cs-shop-cipher required />
+            </label>
+            <label>Page size
+              <input name="page_size" type="number" min="1" max="20" value="20" />
+            </label>
+            <label>Page token
+              <input name="page_token" placeholder="Optional" />
+            </label>
+            <button>Get conversations</button>
+          </form>
+          <form data-cs-query data-path="customer_service/202309/conversations/{conversation_id}/messages">
+            <h3>Get conversation messages</h3>
+            <label>Shop cipher
+              <input name="shop_cipher" data-cs-shop-cipher required />
+            </label>
+            <label>Conversation ID
+              <input name="conversation_id" data-conversation-id required pattern="[0-9]+" />
+            </label>
+            <label>Page size
+              <input name="page_size" type="number" min="1" max="10" value="10" />
+            </label>
+            <label>Page token
+              <input name="page_token" placeholder="Optional" />
+            </label>
+            <button>Get messages</button>
+          </form>
+        </div>
         <h3>Custom request</h3>
         <form id="custom-request" class="custom-request">
           <label>Provider
-            <select id="custom-provider" name="provider"><option value="shop">Shop</option><option value="business">Business (Ads)</option></select>
+            <select id="custom-provider" name="provider"><option value="shop">Shop</option><option value="business">Business (Ads)</option><option value="shop_cs">Shop customer service</option></select>
           </label>
           <label>Method
             <select id="custom-method" name="method"><option>GET</option><option>POST</option></select>
@@ -103,6 +141,7 @@
         <div class="actions">
           <button data-disconnect="business" disabled>Disconnect TikTok Business</button>
           <button data-disconnect="shop" disabled>Disconnect TikTok Shop</button>
+          <button data-disconnect="shop_cs" disabled>Disconnect TikTok Shop customer service</button>
         </div>
       </section>
     </main>

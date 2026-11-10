@@ -2,7 +2,7 @@
 
 [Back to partner integration guide](../api-guide.md)
 
-This dependency-free Node.js app demonstrates the browser OAuth handoff and common read-only TikTok Business (Ads) and TikTok Shop calls. The browser constructs each request with the gateway method, path, query parameters, body, and headers, but sends it to the same-origin demo server. The server is a thin proxy that changes only the origin before forwarding the request to the partner gateway. Each call displays a curl-style request, and the custom form accepts a method, path, query parameters, and POST body.
+This dependency-free Node.js app demonstrates the browser OAuth handoff and common read-only TikTok Business (Ads), TikTok Shop, and TikTok Shop customer service calls. The browser constructs each request with the gateway method, path, query parameters, body, and headers, but sends it to the same-origin demo server. The server is a thin proxy that changes only the origin before forwarding the request to the partner gateway. Each call displays a curl-style request, and the custom form accepts a method, path, query parameters, and POST body.
 
 The demo sends `PARTNER_API_KEY` to its own browser frontend so the displayed and submitted request retains the real gateway header shape. Use only a dedicated non-production demo key. Production partner applications keep this credential exclusively server-side.
 
@@ -18,7 +18,7 @@ export PARTNER_API_KEY='your-private-api-key'
 node demo/server.mjs
 ```
 
-Open <http://localhost:4173>. Restarting the process clears its in-memory browser sessions, but does not disconnect gateway connections. This is intentionally a small integration example, not a production session store.
+Open <http://localhost:4173>. To try customer service, choose **Connect TikTok Shop customer service**, call **List authorized shops** in the customer service section to fill the shop cipher, then **Get conversations** (fills the first conversation ID) and **Get messages**. This connection is separate from the TikTok Shop one and uses the `proxy-tts-cs` prefix. The custom request form also accepts POST, and a customer service POST sends a real message or creates a real conversation with a buyer. Restarting the process clears its in-memory browser sessions, but does not disconnect gateway connections. This is intentionally a small integration example, not a production session store.
 
 Run its tests with:
 
